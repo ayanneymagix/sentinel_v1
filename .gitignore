@@ -1,0 +1,51 @@
+# =========================
+# Python environments
+# =========================
+myenv/
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# =========================
+# Secrets / environment
+# =========================
+.env
+
+# =========================
+# IDE / OS
+# =========================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# =========================
+# Logs / temporary files
+# =========================
+*.log
+*.tmp
+*.cache
+
+# =========================
+# Node
+# =========================
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# =========================
+# Local scratch files
+# =========================
+scratch/
+
+# =========================
+# ML model files
+# =========================
+# Uncomment these if your models are >100 MB
+# *.pt
+# *.pth
+# *.onnx
