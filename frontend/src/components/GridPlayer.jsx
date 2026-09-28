@@ -17,6 +17,10 @@ export default function GridPlayer({
   cameraName = 'Surveillance Feed',
   city = 'Gujarat',
   codec = 'H.264',
+  resolution = null,
+  liveStatus = 'UNKNOWN',
+  streamHealth = null,
+  locationAvailable = true,
   onClick = () => {},
 }) {
   const videoRef = useRef(null);
@@ -203,81 +207,127 @@ export default function GridPlayer({
       )}
 
       {/* CCTV Top Overlay HUD */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '6px',
-          left: '6px',
-          right: '6px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          pointerEvents: 'none',
-        }}
-      >
-        <div
-          style={{
-            background: 'rgba(0, 0, 0, 0.75)',
-            padding: '2px 6px',
-            borderRadius: '4px',
-            fontFamily: 'monospace',
-            fontSize: '10px',
-            color: '#f8fafc',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-          }}
-        >
-          <span
-            style={{
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              backgroundColor: isPlaying ? '#10b981' : '#f59e0b',
-              boxShadow: isPlaying ? '0 0 6px #10b981' : 'none',
-            }}
-          />
-          <span>{cameraId}</span>
-        </div>
+      {/* CCTV Top Overlay HUD */}
+      {(() => {
+        let displayStatus = 'UNKNOWN';
+        let statusColor = '#94a3b8';
+        let statusDotColor = '#94a3b8';
 
-        <div
-          style={{
-            background: 'rgba(6, 182, 212, 0.2)',
-            border: '1px solid rgba(6, 182, 212, 0.4)',
-            color: '#38bdf8',
-            padding: '1px 5px',
-            borderRadius: '4px',
-            fontSize: '9px',
-            fontWeight: 700,
-          }}
-        >
-          {codec}
-        </div>
-      </div>
+        const isLiveReported = liveStatus === 'LIVE' || liveStatus === 'live' || liveStatus === 'online';
+        const isUnavailable = liveStatus === 'UNAVAILABLE' || liveStatus === 'unavailable' || hasStreamError;
+        const isOffline = liveStatus === 'OFFLINE' || liveStatus === 'offline';
 
-      {/* CCTV Bottom Location Tag */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '6px',
-          left: '6px',
-          right: '6px',
-          background: 'rgba(0, 0, 0, 0.75)',
-          padding: '3px 6px',
-          borderRadius: '4px',
-          fontSize: '10px',
-          color: '#cbd5e1',
-          display: 'flex',
-          justifyContent: 'space-between',
-          pointerEvents: 'none',
-        }}
-      >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>
-          {city} • {cameraName}
-        </span>
-        <span style={{ color: '#06b6d4', fontWeight: 600 }}>HLS LIVE</span>
-      </div>
+        if (isLiveReported && isPlaying) {
+          displayStatus = 'LIVE';
+          statusColor = '#10b981';
+          statusDotColor = '#10b981';
+        } else if (isUnavailable) {
+          displayStatus = 'UNAVAILABLE';
+          statusColor = '#ef4444';
+          statusDotColor = '#ef4444';
+        } else if (isOffline) {
+          displayStatus = 'OFFLINE';
+          statusColor = '#ef4444';
+          statusDotColor = '#ef4444';
+        } else if (isLiveReported && !isPlaying) {
+          displayStatus = 'CONNECTING';
+          statusColor = '#f59e0b';
+          statusDotColor = '#f59e0b';
+        } else {
+          displayStatus = 'UNKNOWN';
+          statusColor = '#94a3b8';
+          statusDotColor = '#94a3b8';
+        }
+
+        return (
+          <>
+            <div
+              style={{
+                position: 'absolute',
+                top: '6px',
+                left: '6px',
+                right: '6px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                pointerEvents: 'none',
+              }}
+            >
+              <div
+                style={{
+                  background: 'rgba(0, 0, 0, 0.75)',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  fontFamily: 'monospace',
+                  fontSize: '10px',
+                  color: '#f8fafc',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <span
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: statusDotColor,
+                    boxShadow: isPlaying ? `0 0 6px ${statusDotColor}` : 'none',
+                  }}
+                />
+                <span>{cameraId}</span>
+              </div>
+
+              <div
+                style={{
+                  background: 'rgba(6, 182, 212, 0.2)',
+                  border: '1px solid rgba(6, 182, 212, 0.4)',
+                  color: '#38bdf8',
+                  padding: '1px 5px',
+                  borderRadius: '4px',
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  gap: '4px',
+                }}
+              >
+                <span>{codec}</span>
+                {resolution && <span>• {resolution}</span>}
+              </div>
+            </div>
+
+            {/* CCTV Bottom Location Tag */}
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '6px',
+                left: '6px',
+                right: '6px',
+                background: 'rgba(0, 0, 0, 0.75)',
+                padding: '3px 6px',
+                borderRadius: '4px',
+                fontSize: '10px',
+                color: '#cbd5e1',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                pointerEvents: 'none',
+              }}
+            >
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }}>
+                {city} • {cameraName}
+                {!locationAvailable && (
+                  <span style={{ marginLeft: '4px', color: '#f59e0b', fontSize: '9px' }}>[GIS N/A]</span>
+                )}
+              </span>
+              <span style={{ color: statusColor, fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>
+                {displayStatus}
+              </span>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }

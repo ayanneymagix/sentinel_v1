@@ -264,10 +264,68 @@ END;
 $$;
 
 -- ------------------------------------------------------------------------------
--- 6. PRIMARY NODE INITIALIZATION (Zero Mock Seeds)
+-- 6. PRIMARY NODE INITIALIZATION (Regional Gujarat Edge Hubs)
 -- ------------------------------------------------------------------------------
 
 INSERT INTO public.edge_nodes (node_id, name, city, latitude, longitude, status)
 VALUES
-    ('NODE_AHM_01', 'Ahmedabad Metro Control Node', 'Ahmedabad', 23.0225, 72.5714, 'online')
-ON CONFLICT (node_id) DO NOTHING;
+    ('NODE_AHM_01', 'Ahmedabad Metro Control Node', 'Ahmedabad', 23.0225, 72.5714, 'online'),
+    ('NODE_GND_01', 'Gandhinagar Capital Surveillance Hub', 'Gandhinagar', 23.2156, 72.6369, 'online'),
+    ('NODE_JUN_01', 'Junagadh District Surveillance Node', 'Junagadh', 21.5222, 70.4579, 'online'),
+    ('NODE_SOM_01', 'Gir Somnath Coastal Command Hub', 'Gir Somnath', 20.9000, 70.3700, 'online'),
+    ('NODE_RJK_01', 'Rajkot Central Traffic Command Node', 'Rajkot', 22.3039, 70.8022, 'online'),
+    ('NODE_NAV_01', 'Navsari South Gujarat CCTV Node', 'Navsari', 20.9467, 72.9520, 'online'),
+    ('NODE_PAT_01', 'Patan North Gujarat Surveillance Hub', 'Patan', 23.8493, 72.1266, 'online'),
+    ('NODE_BAN_01', 'Banaskantha Border Surveillance Hub', 'Banaskantha', 24.1725, 72.4382, 'online'),
+    ('NODE_KUT_01', 'Kutch Gandhidham Port Security Hub', 'Gandhidham', 23.0782, 70.1345, 'online')
+ON CONFLICT (node_id) DO UPDATE 
+SET name = EXCLUDED.name, city = EXCLUDED.city, latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude;
+
+-- ------------------------------------------------------------------------------
+-- 7. ALL 30 GUJARAT STATEWIDE CAMERAS (https://cctv.corp8.cloud)
+-- ------------------------------------------------------------------------------
+
+INSERT INTO public.cameras (camera_id, node_id, name, city, source, latitude, longitude, geom, enabled, status)
+VALUES
+    ('cam01', 'NODE_AHM_01', '01 Chiman bhai Bridge', 'Ahmedabad', 'https://cctv.corp8.cloud/cam01/index.m3u8', 23.0645, 72.5802, ST_SetSRID(ST_MakePoint(72.5802, 23.0645), 4326), true, 'online'),
+    ('cam02', 'NODE_AHM_01', '02 Janpath', 'Ahmedabad', 'https://cctv.corp8.cloud/cam02/index.m3u8', 23.0556, 72.5739, ST_SetSRID(ST_MakePoint(72.5739, 23.0556), 4326), true, 'online'),
+    ('cam03', 'NODE_AHM_01', '03 O.N.G.C. Office', 'Ahmedabad', 'https://cctv.corp8.cloud/cam03/index.m3u8', 23.1042, 72.5931, ST_SetSRID(ST_MakePoint(72.5931, 23.1042), 4326), true, 'online'),
+    ('cam04', 'NODE_AHM_01', '04 Paldi Circle', 'Ahmedabad', 'https://cctv.corp8.cloud/cam04/index.m3u8', 23.0125, 72.5628, ST_SetSRID(ST_MakePoint(72.5628, 23.0125), 4326), true, 'online'),
+    ('cam05', 'NODE_AHM_01', '05 Visat teen Rasta', 'Ahmedabad', 'https://cctv.corp8.cloud/cam05/index.m3u8', 23.0975, 72.5878, ST_SetSRID(ST_MakePoint(72.5878, 23.0975), 4326), true, 'online'),
+    ('cam06', 'NODE_JUN_01', '06 Timbavadi gate-Junagadh', 'Junagadh', 'https://cctv.corp8.cloud/cam06/index.m3u8', 21.5034, 70.4412, ST_SetSRID(ST_MakePoint(70.4412, 21.5034), 4326), true, 'online'),
+    ('cam07', 'NODE_SOM_01', '07 hero-showroom-gir-somnath', 'Gir Somnath', 'https://cctv.corp8.cloud/cam07/index.m3u8', 20.9125, 70.3688, ST_SetSRID(ST_MakePoint(70.3688, 20.9125), 4326), true, 'online'),
+    ('cam08', 'NODE_JUN_01', '08 majewadi-gate-junagadh', 'Junagadh', 'https://cctv.corp8.cloud/cam08/index.m3u8', 21.5248, 70.4632, ST_SetSRID(ST_MakePoint(70.4632, 21.5248), 4326), true, 'online'),
+    ('cam09', 'NODE_JUN_01', '09 new-bypass-near-by-circle-junagadh-2', 'Junagadh', 'https://cctv.corp8.cloud/cam09/index.m3u8', 21.5412, 70.4358, ST_SetSRID(ST_MakePoint(70.4358, 21.5412), 4326), true, 'online'),
+    ('cam10', 'NODE_JUN_01', '10 char-chowk-road-2-junagadh', 'Junagadh', 'https://cctv.corp8.cloud/cam10/index.m3u8', 21.5186, 70.4574, ST_SetSRID(ST_MakePoint(70.4574, 21.5186), 4326), true, 'online'),
+    ('cam11', 'NODE_JUN_01', '11 dolatpara-junagadh', 'Junagadh', 'https://cctv.corp8.cloud/cam11/index.m3u8', 21.5542, 70.4685, ST_SetSRID(ST_MakePoint(70.4685, 21.5542), 4326), true, 'online'),
+    ('cam12', 'NODE_GND_01', '12 Tri Mandir Adalaj Tollnaka', 'Gandhinagar', 'https://cctv.corp8.cloud/cam12/index.m3u8', 23.1678, 72.5812, ST_SetSRID(ST_MakePoint(72.5812, 23.1678), 4326), true, 'online'),
+    ('cam13', 'NODE_AHM_01', '13 CN Vidhyalaya', 'Ahmedabad', 'https://cctv.corp8.cloud/cam13/index.m3u8', 23.0232, 72.5488, ST_SetSRID(ST_MakePoint(72.5488, 23.0232), 4326), true, 'online'),
+    ('cam14', 'NODE_AHM_01', '14 Delight RLVD', 'Ahmedabad', 'https://cctv.corp8.cloud/cam14/index.m3u8', 23.0118, 72.5085, ST_SetSRID(ST_MakePoint(72.5085, 23.0118), 4326), true, 'online'),
+    ('cam15', 'NODE_AHM_01', '15 Suvidha park', 'Ahmedabad', 'https://cctv.corp8.cloud/cam15/index.m3u8', 23.0441, 72.5516, ST_SetSRID(ST_MakePoint(72.5516, 23.0441), 4326), true, 'online'),
+    ('cam16', 'NODE_AHM_01', '16 Visat P2', 'Ahmedabad', 'https://cctv.corp8.cloud/cam16/index.m3u8', 23.0991, 72.5892, ST_SetSRID(ST_MakePoint(72.5892, 23.0991), 4326), true, 'online'),
+    ('cam17', 'NODE_RJK_01', '17 Rajkot Bus Port CCTV', 'Rajkot', 'https://cctv.corp8.cloud/cam17/index.m3u8', 22.2965, 70.8012, ST_SetSRID(ST_MakePoint(70.8012, 22.2965), 4326), true, 'online'),
+    ('cam18', 'NODE_RJK_01', '18 Rajkot CCTV', 'Rajkot', 'https://cctv.corp8.cloud/cam18/index.m3u8', 22.3028, 70.8025, ST_SetSRID(ST_MakePoint(70.8025, 22.3028), 4326), true, 'online'),
+    ('cam19', 'NODE_NAV_01', '19 KHAPARIA GRAM PANCHAYAT , TALUKA GANDEVI, DISTRICT NAVSARI', 'Navsari', 'https://cctv.corp8.cloud/cam19/index.m3u8', 20.8142, 72.9856, ST_SetSRID(ST_MakePoint(72.9856, 20.8142), 4326), true, 'online'),
+    ('cam20', 'NODE_AHM_01', '20 Mohanpura', 'Ahmedabad', 'https://cctv.corp8.cloud/cam20/index.m3u8', 23.0368, 72.6042, ST_SetSRID(ST_MakePoint(72.6042, 23.0368), 4326), true, 'online'),
+    ('cam21', 'NODE_PAT_01', '23 Patan Dethali Char Rasta', 'Patan', 'https://cctv.corp8.cloud/cam21/index.m3u8', 23.8375, 72.1284, ST_SetSRID(ST_MakePoint(72.1284, 23.8375), 4326), true, 'online'),
+    ('cam22', 'NODE_BAN_01', '28 BK Mervada tran Rasta', 'Banaskantha', 'https://cctv.corp8.cloud/cam22/index.m3u8', 24.1725, 72.4382, ST_SetSRID(ST_MakePoint(72.4382, 24.1725), 4326), true, 'online'),
+    ('cam23', 'NODE_NAV_01', '30 kheram', 'Navsari', 'https://cctv.corp8.cloud/cam23/index.m3u8', 20.7385, 73.0512, ST_SetSRID(ST_MakePoint(73.0512, 20.7385), 4326), true, 'online'),
+    ('cam24', 'NODE_GND_01', '33 dehgam', 'Gandhinagar', 'https://cctv.corp8.cloud/cam24/index.m3u8', 23.1682, 72.8125, ST_SetSRID(ST_MakePoint(72.8125, 23.1682), 4326), true, 'online'),
+    ('cam25', 'NODE_NAV_01', '34 dhanori', 'Navsari', 'https://cctv.corp8.cloud/cam25/index.m3u8', 20.8325, 72.9715, ST_SetSRID(ST_MakePoint(72.9715, 20.8325), 4326), true, 'online'),
+    ('cam26', 'NODE_NAV_01', '35 TANKAL', 'Navsari', 'https://cctv.corp8.cloud/cam26/index.m3u8', 20.7612, 73.0845, ST_SetSRID(ST_MakePoint(73.0845, 20.7612), 4326), true, 'online'),
+    ('cam27', 'NODE_NAV_01', '36 bilimora', 'Navsari', 'https://cctv.corp8.cloud/cam27/index.m3u8', 20.7628, 72.9642, ST_SetSRID(ST_MakePoint(72.9642, 20.7628), 4326), true, 'online'),
+    ('cam28', 'NODE_NAV_01', '37 bilimora', 'Navsari', 'https://cctv.corp8.cloud/cam28/index.m3u8', 20.7584, 72.9718, ST_SetSRID(ST_MakePoint(72.9718, 20.7584), 4326), true, 'online'),
+    ('cam29', 'NODE_NAV_01', '38 bilimora', 'Navsari', 'https://cctv.corp8.cloud/cam29/index.m3u8', 20.7512, 72.9585, ST_SetSRID(ST_MakePoint(72.9585, 20.7512), 4326), true, 'online'),
+    ('cam30', 'NODE_KUT_01', 'Gandhidham Rambaugh p2', 'Gandhidham', 'https://cctv.corp8.cloud/cam30/index.m3u8', 23.0782, 70.1345, ST_SetSRID(ST_MakePoint(70.1345, 23.0782), 4326), true, 'online')
+ON CONFLICT (camera_id) DO UPDATE
+SET node_id = EXCLUDED.node_id,
+    name = EXCLUDED.name,
+    city = EXCLUDED.city,
+    source = EXCLUDED.source,
+    latitude = EXCLUDED.latitude,
+    longitude = EXCLUDED.longitude,
+    geom = EXCLUDED.geom,
+    enabled = true,
+    status = 'online',
+    updated_at = NOW();
+

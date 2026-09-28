@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Video, RefreshCw, Radio, Shield, Filter, Eye, AlertCircle } from 'lucide-react';
+import { Video, RefreshCw, Radio, Shield, Filter, Eye, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import GridPlayer from './GridPlayer.jsx';
 import FocusPlayer from './FocusPlayer.jsx';
 
@@ -8,7 +8,7 @@ import FocusPlayer from './FocusPlayer.jsx';
  * 
  * Directives:
  * 1. Fetches camera array from authoritative registry (/api/cameras).
- * 2. Renders 3x3 grid (first 9 active cameras) using GridPlayer (HLS).
+ * 2. Renders 3x3 grid with pagination supporting all 30 statewide cameras.
  * 3. On click, launches FocusPlayer modal with ultra-low latency WebRTC (WHEP).
  * 4. Zero hardcoding: dynamically constructs stream URLs using authoritative backend descriptors.
  */
@@ -18,8 +18,8 @@ export default function CCTVGrid() {
   const [error, setError] = useState(null);
   const [focusedCamera, setFocusedCamera] = useState(null);
   const [selectedDistrict, setSelectedDistrict] = useState('ALL');
-
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 9;
 
   // 1. Fetch camera topology dynamically from authoritative registry API
   const fetchCameras = async () => {
@@ -50,11 +50,20 @@ export default function CCTVGrid() {
     ? cameras
     : cameras.filter((c) => c.location?.city === selectedDistrict || c.city === selectedDistrict);
 
-  // Directive: Display the first 9 active cameras in the primary HLS grid
-  const activeCameras = filteredCameras.slice(0, 9);
+  // Pagination for all 30 cameras
+  const totalPages = Math.max(1, Math.ceil(filteredCameras.length / pageSize));
+  const effectivePage = Math.min(currentPage, totalPages);
+  const startIndex = (effectivePage - 1) * pageSize;
+  const activeCameras = filteredCameras.slice(startIndex, startIndex + pageSize);
+
+  const handleDistrictChange = (district) => {
+    setSelectedDistrict(district);
+    setCurrentPage(1);
+  };
 
   // Extract unique districts for filtering
   const districtList = ['ALL', ...new Set(cameras.map((c) => c.location?.city || c.city || 'Gujarat').filter(Boolean))];
+
 
   return (
     <div
@@ -98,7 +107,20 @@ export default function CCTVGrid() {
 
           <div>
             <h2 style={{ fontSize: '15px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              STATEWIDE 9-FEED HLS SURVEILLANCE MATRIX
+              STATEWIDE SURVEILLANCE MATRIX
+              <span
+                style={{
+                  fontSize: '11px',
+                  background: 'rgba(6, 182, 212, 0.2)',
+                  color: '#38bdf8',
+                  border: '1px solid rgba(6, 182, 212, 0.4)',
+                  padding: '1px 8px',
+                  borderRadius: '4px',
+                  fontWeight: 700,
+                }}
+              >
+                {cameras.length} cameras
+              </span>
               <span
                 style={{
                   fontSize: '10px',
@@ -109,11 +131,11 @@ export default function CCTVGrid() {
                   borderRadius: '4px',
                 }}
               >
-                HLS ACTIVE
+                CATALOGUE LIVE
               </span>
             </h2>
             <p style={{ fontSize: '11px', color: '#94a3b8', margin: '2px 0 0 0' }}>
-              Authoritative Dynamic CCTV Gateway • cctv.corp8.cloud
+              Authoritative Dynamic CCTV Gateway • {cameras.length} cameras discovered
             </p>
           </div>
         </div>
@@ -125,7 +147,7 @@ export default function CCTVGrid() {
             <Filter size={14} color="#94a3b8" />
             <select
               value={selectedDistrict}
-              onChange={(e) => setSelectedDistrict(e.target.value)}
+              onChange={(e) => handleDistrictChange(e.target.value)}
               style={{
                 background: 'rgba(15, 23, 42, 0.8)',
                 border: '1px solid rgba(6, 182, 212, 0.3)',
@@ -157,9 +179,11 @@ export default function CCTVGrid() {
               gap: '12px',
             }}
           >
-            <span>Feeds Ingested: <b style={{ color: '#10b981' }}>{activeCameras.length} / {cameras.length}</b></span>
+            <span>Feeds Ingested: <b style={{ color: '#10b981' }}>{filteredCameras.length} Active ({activeCameras.length} on page)</b></span>
+            <span>Page: <b style={{ color: '#06b6d4' }}>{effectivePage} / {totalPages}</b></span>
             <span>WAN Bandwidth: <b style={{ color: '#f59e0b' }}>{(activeCameras.length * 2.8).toFixed(1)} Mbps</b></span>
           </div>
+
 
           {/* Refresh Button */}
           <button
@@ -230,6 +254,10 @@ export default function CCTVGrid() {
                 cameraName={camName}
                 city={city}
                 codec={codec}
+                resolution={cam.resolution}
+                liveStatus={cam.live_status || (cam.status === 'online' ? 'LIVE' : 'UNKNOWN')}
+                streamHealth={cam.stream_health}
+                locationAvailable={cam.location_available ?? (cam.latitude != null && cam.longitude != null)}
                 onClick={() => setFocusedCamera(cam)}
               />
 
@@ -304,6 +332,96 @@ export default function CCTVGrid() {
         )}
       </div>
 
+      {/* Pagination Controls Bar */}
+      {totalPages > 1 && (
+        <div
+          className="glass-panel"
+          style={{
+            padding: '10px 24px',
+            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexShrink: 0,
+            background: 'rgba(10, 14, 20, 0.95)',
+          }}
+        >
+          <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+            Showing feeds <b style={{ color: '#f8fafc' }}>{startIndex + 1} - {Math.min(startIndex + pageSize, filteredCameras.length)}</b> of <b style={{ color: '#06b6d4' }}>{filteredCameras.length}</b> total cameras
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={effectivePage <= 1}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '6px 14px',
+                borderRadius: '6px',
+                background: effectivePage <= 1 ? 'rgba(255, 255, 255, 0.04)' : 'rgba(6, 182, 212, 0.15)',
+                border: '1px solid',
+                borderColor: effectivePage <= 1 ? 'rgba(255, 255, 255, 0.1)' : '#06b6d4',
+                color: effectivePage <= 1 ? '#64748b' : '#06b6d4',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: effectivePage <= 1 ? 'not-allowed' : 'pointer',
+              }}
+            >
+              <ChevronLeft size={14} />
+              PREVIOUS
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '6px',
+                  background: effectivePage === page ? '#06b6d4' : 'rgba(15, 23, 42, 0.8)',
+                  border: '1px solid',
+                  borderColor: effectivePage === page ? '#06b6d4' : 'rgba(255, 255, 255, 0.15)',
+                  color: effectivePage === page ? '#04101e' : '#f8fafc',
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={effectivePage >= totalPages}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '6px 14px',
+                borderRadius: '6px',
+                background: effectivePage >= totalPages ? 'rgba(255, 255, 255, 0.04)' : 'rgba(6, 182, 212, 0.15)',
+                border: '1px solid',
+                borderColor: effectivePage >= totalPages ? 'rgba(255, 255, 255, 0.1)' : '#06b6d4',
+                color: effectivePage >= totalPages ? '#64748b' : '#06b6d4',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: effectivePage >= totalPages ? 'not-allowed' : 'pointer',
+              }}
+            >
+              NEXT
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Focus Inspection Modal: Low-Latency WebRTC (WHEP) Feed */}
       {focusedCamera && (
         <FocusPlayer
@@ -314,3 +432,4 @@ export default function CCTVGrid() {
     </div>
   );
 }
+

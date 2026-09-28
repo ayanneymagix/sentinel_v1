@@ -202,11 +202,17 @@ class TestPhase1Integrity(unittest.TestCase):
                 """)
                 self.assertTrue(calib_table_exists, "camera_calibrations table must exist")
 
-                # 3. Check registered recorded test clips exist in cameras table
-                cctv_cams = await conn.fetchval("""
+                # 3. Verify authoritative cloud CCTV cameras are registered and legacy CAM_CCTV_* are deleted
+                legacy_cctv_cams = await conn.fetchval("""
                     SELECT count(*) FROM public.cameras WHERE camera_id LIKE 'CAM_CCTV_%';
                 """)
-                self.assertGreaterEqual(cctv_cams, 5, "5 recorded CCTV test clips must be registered in cameras table")
+                self.assertEqual(legacy_cctv_cams, 0, "CAM_CCTV_* test cameras must be permanently removed from cameras table")
+
+                cloud_cams = await conn.fetchval("""
+                    SELECT count(*) FROM public.cameras WHERE camera_id LIKE 'cam%';
+                """)
+                self.assertGreaterEqual(cloud_cams, 30, "All 30 authoritative CCTV cameras must be registered in cameras table")
+
 
                 # 4. Check confidence column in public.events is nullable
                 is_nullable = await conn.fetchval("""

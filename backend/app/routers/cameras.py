@@ -31,13 +31,12 @@ logger = logging.getLogger("sentinel.api.cameras")
 
 router = APIRouter(prefix="/api/cameras", tags=["Live Camera Registry"])
 
-# In-memory stream health registry updated by edge ingestion workers or poller
-_stream_health_registry: Dict[str, Dict[str, Any]] = {}
+from app.services.catalogue_service import catalogue_service
 
 
 def update_camera_health(camera_id: str, metrics: Dict[str, Any]) -> None:
     """Updates the in-memory health metrics for a camera."""
-    _stream_health_registry[camera_id] = metrics
+    catalogue_service.update_camera_health(camera_id, metrics)
 
 
 @router.get("", response_model=List[Dict[str, Any]])
@@ -45,109 +44,55 @@ def update_camera_health(camera_id: str, metrics: Dict[str, Any]) -> None:
 async def list_cameras(
     district_id: Optional[str] = Query(None, description="Optional district filter"),
     online_only: bool = Query(False, description="Filter only online cameras"),
+    refresh: bool = Query(False, description="Force refresh from real gateway catalogue"),
 ) -> List[Dict[str, Any]]:
     """
     Authoritative dynamic camera registry endpoint for the frontend.
+    Strictly driven by the real Gujarat Camera Feed Gateway Catalogue.
     
     Security Contract:
-    - Never returns RTSP URLs or credentials to the browser.
+    - Never returns raw RTSP credentials or gateway control tokens to the browser.
     - Exposes WebRTC/WHEP and HLS preview endpoints.
     - Respects location integrity: missing coordinates are strictly returned as null.
     - Exposes calibration status (CALIBRATED vs CALIBRATION_REQUIRED).
+    - ZERO fake data: returns real catalogue records only.
     """
-    if postgres.pool is None:
-        raise HTTPException(status_code=503, detail="Database pool unavailable")
+    cameras = await catalogue_service.fetch_catalogue(force_refresh=refresh)
 
-    query = """
-        SELECT 
-            c.camera_id,
-            c.name,
-            c.node_id,
-            c.city,
-            c.source,
-            c.latitude,
-            c.longitude,
-            c.enabled,
-            c.status,
-            COALESCE(cc.is_active, false) AS is_calibrated,
-            cc.calibration_id
-        FROM public.cameras c
-        LEFT JOIN public.camera_calibrations cc 
-            ON c.camera_id = cc.camera_id AND cc.is_active = true
-        WHERE ($1::text IS NULL OR UPPER(c.city) = UPPER($1))
-          AND ($2::boolean IS FALSE OR c.status = 'online')
-          AND c.enabled = true
-        ORDER BY c.camera_id ASC;
-    """
+    if district_id:
+        d_str = district_id.upper()
+        cameras = [c for c in cameras if c.get("city", "").upper() == d_str]
 
-    async with postgres.pool.acquire() as conn:
-        rows = await conn.fetch(query, district_id, online_only)
+    if online_only:
+        cameras = [c for c in cameras if c.get("status") == "online" or c.get("live_status") == "LIVE"]
 
-    cameras_list: List[Dict[str, Any]] = []
-
-    # Real CCTV Gateway stream endpoints (strictly sanitized - ZERO RTSP credentials exposed to browser)
-    gateway_url = os.getenv("CCTV_GATEWAY_URL", "https://cctv.corp8.cloud").rstrip("/")
-    parsed_gateway = urlparse(gateway_url)
-    stream_host = os.getenv("CCTV_STREAM_HOST") or parsed_gateway.hostname or "127.0.0.1"
-    whep_port = int(os.getenv("CCTV_WHEP_PORT", "8889"))
-
-    for row in rows:
-        cam_id = row["camera_id"]
-        source = row["source"] or ""
-        city = row["city"]
-
-        # Codec detection
-        codec = "h265" if any(k in cam_id.lower() or k in source.lower() for k in ["h265", "hevc", "ptz", "4k"]) else "h264"
-
-        # Authoritative browser-compatible stream endpoints (proxied with authenticated session)
-        hls_url = f"/api/cameras/{cam_id}/hls/index.m3u8"
-        whep_url = f"http://{stream_host}:{whep_port}/stream/{cam_id}/whep"
-
-        # Physical calibration status
-        is_calib = bool(row["is_calibrated"])
-        calib_status = "CALIBRATED" if is_calib else "CALIBRATION_REQUIRED"
-
-        # Coordinates: Strict None if missing; NEVER fabricate Gandhinagar or Ahmedabad defaults
-        lat = float(row["latitude"]) if row["latitude"] is not None else None
-        lon = float(row["longitude"]) if row["longitude"] is not None else None
-
-        # Health metrics if active
-        health = _stream_health_registry.get(cam_id, {
-            "stream_state": "DISCOVERED" if row["enabled"] else "OFFLINE",
-            "last_pts": None,
-            "queue_depth": 0,
-            "dropped_frames": 0,
-            "reconnect_count": 0,
-        })
-
-        cameras_list.append({
-            "camera_id": cam_id,
-            "name": row["name"],
-            "node_id": row["node_id"],
-            "city": city,
-            "latitude": lat,
-            "longitude": lon,
-            "location_available": (lat is not None and lon is not None),
-            "codec": codec,
-            "enabled": bool(row["enabled"]),
-            "status": row["status"],
-            "calibration_status": calib_status,
-            "is_calibrated": is_calib,
-            "calibration_id": row["calibration_id"],
-            "whep_url": whep_url,
-            "hls_url": hls_url,
-            "stream_health": health,
-        })
-
-    return cameras_list
+    return cameras
 
 
 @router.get("/ingest")
 @router.get("/v1/cameras/ingest")
 async def list_cameras_ingest() -> Dict[str, Any]:
     """Compatibility endpoint returning real camera topology dictionary."""
-    cameras = await list_cameras()
+    cameras = await catalogue_service.fetch_catalogue()
     return {"count": len(cameras), "cameras": cameras}
+
+
+@router.post("/refresh", response_model=Dict[str, Any])
+async def refresh_camera_catalogue() -> Dict[str, Any]:
+    """Manually forces a reload of the real camera catalogue from the gateway."""
+    cameras = await catalogue_service.fetch_catalogue(force_refresh=True)
+    status = catalogue_service.get_service_status()
+    return {
+        "status": "success",
+        "discovered_cameras": len(cameras),
+        "service_status": status,
+    }
+
+
+@router.get("/service/status", response_model=Dict[str, Any])
+async def get_catalogue_service_status() -> Dict[str, Any]:
+    """Returns connectivity and cache diagnostic status for the catalogue service."""
+    return catalogue_service.get_service_status()
 
 
 @router.get("/{camera_id}", response_model=Dict[str, Any])
@@ -155,80 +100,30 @@ async def get_camera_detail(
     camera_id: str = PathParam(..., description="Target Camera Identifier"),
 ) -> Dict[str, Any]:
     """Fetch metadata and stream parameters for a single camera (strictly sanitized)."""
-    if postgres.pool is None:
-        raise HTTPException(status_code=503, detail="Database pool unavailable")
+    cam = await catalogue_service.get_camera(camera_id)
+    if not cam:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Camera [{camera_id}] not found in catalogue",
+        )
+    return cam
 
-    query = """
-        SELECT 
-            c.camera_id,
-            c.name,
-            c.node_id,
-            c.city,
-            c.source,
-            c.latitude,
-            c.longitude,
-            c.enabled,
-            c.status,
-            COALESCE(cc.is_active, false) AS is_calibrated,
-            cc.calibration_id,
-            cc.real_width_meters,
-            cc.real_length_meters
-        FROM public.cameras c
-        LEFT JOIN public.camera_calibrations cc 
-            ON c.camera_id = cc.camera_id AND cc.is_active = true
-        WHERE c.camera_id = $1;
+
+@router.get("/{camera_id}/stream", response_model=Dict[str, Any])
+async def get_camera_stream(
+    camera_id: str = PathParam(..., description="Target Camera Identifier"),
+) -> Dict[str, Any]:
     """
-
-    async with postgres.pool.acquire() as conn:
-        row = await conn.fetchrow(query, camera_id)
-
-    if not row:
-        raise HTTPException(status_code=404, detail=f"Camera [{camera_id}] not found in registry")
-
-    cam_id = row["camera_id"]
-    source = row["source"] or ""
-    codec = "h265" if any(k in cam_id.lower() or k in source.lower() for k in ["h265", "hevc", "ptz", "4k"]) else "h264"
-
-    gateway_url = os.getenv("CCTV_GATEWAY_URL", "https://cctv.corp8.cloud").rstrip("/")
-    parsed_gateway = urlparse(gateway_url)
-    stream_host = os.getenv("CCTV_STREAM_HOST") or parsed_gateway.hostname or "127.0.0.1"
-    whep_port = int(os.getenv("CCTV_WHEP_PORT", "8889"))
-
-    hls_url = f"{gateway_url}/{cam_id}/index.m3u8"
-    whep_url = f"http://{stream_host}:{whep_port}/stream/{cam_id}/whep"
-
-    lat = float(row["latitude"]) if row["latitude"] is not None else None
-    lon = float(row["longitude"]) if row["longitude"] is not None else None
-
-    is_calib = bool(row["is_calibrated"])
-
-    health = _stream_health_registry.get(cam_id, {
-        "stream_state": "DISCOVERED" if row["enabled"] else "OFFLINE",
-        "last_pts": None,
-        "queue_depth": 0,
-        "dropped_frames": 0,
-        "reconnect_count": 0,
-    })
-
-    return {
-        "camera_id": cam_id,
-        "name": row["name"],
-        "node_id": row["node_id"],
-        "city": row["city"],
-        "latitude": lat,
-        "longitude": lon,
-        "location_available": (lat is not None and lon is not None),
-        "codec": codec,
-        "enabled": bool(row["enabled"]),
-        "status": row["status"],
-        "calibration_status": "CALIBRATED" if is_calib else "CALIBRATION_REQUIRED",
-        "is_calibrated": is_calib,
-        "calibration_id": row["calibration_id"],
-        "real_width_meters": row["real_width_meters"],
-        "whep_url": whep_url,
-        "hls_url": hls_url,
-        "stream_health": health,
-    }
+    Step 14: Returns available stream information from the catalogue.
+    Supplies HLS, WebRTC/WHEP, and TCP RTSP endpoint references with zero leaked credentials.
+    """
+    stream_info = await catalogue_service.get_camera_stream_info(camera_id)
+    if not stream_info:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Camera [{camera_id}] not found in catalogue",
+        )
+    return stream_info
 
 
 @router.get("/{camera_id}/health", response_model=Dict[str, Any])
@@ -236,24 +131,7 @@ async def get_camera_health(
     camera_id: str = PathParam(..., description="Target Camera Identifier"),
 ) -> Dict[str, Any]:
     """Expose live stream health, queue lag, and reconnect counters for observability."""
-    health = _stream_health_registry.get(camera_id)
-    if health:
-        return {
-            "camera_id": camera_id,
-            **health,
-        }
-
-    # Return baseline discovered status if not actively reporting
-    return {
-        "camera_id": camera_id,
-        "stream_state": "DISCOVERED",
-        "stream_generation": 0,
-        "queue_depth": 0,
-        "dropped_frames": 0,
-        "reconnect_count": 0,
-        "last_pts": None,
-        "processing_latency_ms": None,
-    }
+    return await catalogue_service.get_camera_health(camera_id)
 
 
 # ==============================================================================
@@ -642,7 +520,7 @@ async def proxy_hls_segment(camera_id: str, file_name: str):
 async def get_camera_fallback_video(camera_id: str):
     """
     Streams local camera video feed whenever the upstream CDN is cooling down.
-    Accurately maps cam01 and CAM_CCTV_1-4 to their original CCTV video files.
+    Accurately maps camera identifiers to their local fallback video files.
     """
     from fastapi.responses import FileResponse
     from pathlib import Path
@@ -669,12 +547,10 @@ async def get_camera_fallback_video(camera_id: str):
     alias_names = []
     if db_source_name:
         alias_names.append(db_source_name)
-    if cid_lower.startswith("cam_cctv_"):
-        idx = cid_lower.replace("cam_cctv_", "")
-        alias_names.append(f"mycctv{idx}.mp4")
-    elif "mycctv" in cid_lower:
+    if "mycctv" in cid_lower:
         alias_names.append(f"{cid_lower}.mp4" if not cid_lower.endswith(".mp4") else cid_lower)
     alias_names.append(f"{camera_id}.mp4")
+
 
     search_dirs = [
         proj_root / "data",

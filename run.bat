@@ -25,10 +25,10 @@ if "%opt%"=="5" exit /b 0
 :launch_all
 echo.
 echo [+] Starting Sentinel Backend Server in background window...
-start "Sentinel Backend API" cmd /k "cd /d %~dp0 && myenv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000"
+start "Sentinel Backend API" cmd /k "cd /d %~dp0 && myenv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8001"
 timeout /t 3 /nobreak >nul
 echo [+] Opening Command Center in your default web browser...
-start http://localhost:8000/dashboard/
+start http://localhost:8001/dashboard/
 echo [+] Starting Edge AI Perception Engine in separate window...
 start "Sentinel Edge AI" cmd /k "cd /d %~dp0edge && ..\myenv\Scripts\python.exe sentinel_edge/main.py"
 echo.
@@ -39,9 +39,9 @@ exit /b 0
 :launch_backend
 echo.
 echo [+] Starting Sentinel Backend Server...
-start "Sentinel Backend API" cmd /k "cd /d %~dp0 && myenv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000"
+start "Sentinel Backend API" cmd /k "cd /d %~dp0 && myenv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8001"
 timeout /t 3 /nobreak >nul
-start http://localhost:8000/dashboard/
+start http://localhost:8001/dashboard/
 exit /b 0
 
 :launch_edge

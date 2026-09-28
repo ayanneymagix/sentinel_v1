@@ -592,13 +592,9 @@ export default function UnifiedCommandCenter({
     const video = videoRef.current;
     if (!video) return;
 
-    // For recorded CCTV footage feeds (CAM_CCTV_*, mycctv*, or MP4 sources),
-    // directly mount the high-definition video stream for flawless playback and frame-level tracking sync
-    const camIdStr = (activeCamera.camera_id || selectedCameraId || '').toLowerCase();
-    const isRecordedCctv = 
-      camIdStr.startsWith('cam_cctv_') || 
-      camIdStr.includes('mycctv') ||
-      Boolean(activeCamera.source && activeCamera.source.endsWith('.mp4'));
+    // For video file playback (MP4 sources), directly mount the stream
+    const isRecordedCctv = Boolean(activeCamera.source && activeCamera.source.endsWith('.mp4'));
+
 
     if (isRecordedCctv) {
       if (hlsPlayerRef.current) {

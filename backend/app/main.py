@@ -130,10 +130,18 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.routers.cameras import router as cameras_router
+from app.routers.registry import router as registry_router
+from app.routers.sources_and_analytics import router as model2_router
 
 # Authoritative Dynamic Camera Registry & Telemetry APIs
 app.include_router(
     cameras_router,
+)
+app.include_router(
+    registry_router,
+)
+app.include_router(
+    model2_router,
 )
 
 app.include_router(

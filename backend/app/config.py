@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     )
 
     cctv_gateway_url: str = "https://cctv.corp8.cloud"
+    camera_catalogue_url: str = "https://cctv.corp8.cloud/api/ingest"
     cctv_username: str | None = None
     cctv_password: str | None = None
 

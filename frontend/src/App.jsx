@@ -10,6 +10,7 @@ import {
   Bell,
   Cpu,
   Tv,
+  Database,
 } from 'lucide-react';
 import GisMap from './components/GisMap.jsx';
 import RoutePanel from './components/RoutePanel.jsx';
@@ -18,6 +19,7 @@ import WatchlistManager from './components/WatchlistManager.jsx';
 import CCTVGrid from './components/CCTVGrid.jsx';
 import UnifiedCommandCenter from './components/UnifiedCommandCenter.jsx';
 import CameraInspectionModal from './components/CameraInspectionModal.jsx';
+import AssetRegistry from './components/AssetRegistry.jsx';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('command_center'); // 'command_center' | 'gis' | 'watchlist' | 'matrix'
@@ -316,6 +318,27 @@ export default function App() {
           </button>
 
           <button
+            onClick={() => setActiveTab('registry')}
+            style={{
+              background: activeTab === 'registry' ? 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)' : 'transparent',
+              color: activeTab === 'registry' ? '#ffffff' : '#cbd5e1',
+              border: 'none',
+              padding: '6px 14px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: activeTab === 'registry' ? '0 0 14px rgba(139, 92, 246, 0.5)' : 'none',
+            }}
+          >
+            <Database size={14} /> ★ ASSET REGISTRY
+          </button>
+
+          <button
             onClick={() => {
               setActiveTab('gis');
               if (!routeData && selectedPlate) {
@@ -422,6 +445,18 @@ export default function App() {
 
         {activeTab === 'matrix' && <CCTVGrid />}
 
+        {activeTab === 'registry' && (
+          <AssetRegistry
+            onViewLiveCamera={(cam) => {
+              setInspectedCamera(cam);
+            }}
+            onSelectCameraForGis={(cam) => {
+              setInspectedCamera(cam);
+              setActiveTab('gis');
+            }}
+          />
+        )}
+
         {activeTab === 'watchlist' && (
           <WatchlistManager />
         )}
@@ -431,6 +466,9 @@ export default function App() {
           <CameraInspectionModal
             camera={inspectedCamera}
             onClose={() => setInspectedCamera(null)}
+            onViewAsset={(camId) => {
+              setActiveTab('registry');
+            }}
           />
         )}
       </main>

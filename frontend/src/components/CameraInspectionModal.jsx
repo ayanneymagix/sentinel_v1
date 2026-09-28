@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Video, Radio, Cpu, Activity, Shield, Maximize2, RefreshCw } from 'lucide-react';
 import Hls from 'hls.js';
 
-export default function CameraInspectionModal({ camera, onClose }) {
+export default function CameraInspectionModal({ camera, onClose, onViewAsset }) {
   const [protocol, setProtocol] = useState('HLS'); // 'HLS' | 'WHEP'
   const [connectionState, setConnectionState] = useState('CONNECTING'); // 'CONNECTING' | 'LIVE' | 'DEGRADED' | 'OFFLINE'
   const [streamFps, setStreamFps] = useState(null);
@@ -390,6 +390,29 @@ export default function CameraInspectionModal({ camera, onClose }) {
           </div>
 
           <div style={{ display: 'flex', gap: '10px' }}>
+            {onViewAsset && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onViewAsset(camId);
+                }}
+                style={{
+                  background: 'rgba(139, 92, 246, 0.2)',
+                  border: '1px solid #8b5cf6',
+                  color: '#c084fc',
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                ★ VIEW ASSET RECORD
+              </button>
+            )}
             <button
               onClick={onClose}
               style={{

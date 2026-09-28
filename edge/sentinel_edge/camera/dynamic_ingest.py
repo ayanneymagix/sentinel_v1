@@ -103,7 +103,7 @@ class BoundedBufferCapture:
 def discover_camera_topology(
     api_base_url: Optional[str] = None,
     district_id: Optional[str] = None,
-    timeout_sec: float = 6.0,
+    timeout_sec: float = 20.0,
     username: Optional[str] = None,
     password: Optional[str] = None,
 ) -> List[CameraDescriptor]:
@@ -130,16 +130,25 @@ def discover_camera_topology(
     username = username or os.getenv("CCTV_USERNAME") or os.getenv("CCTV_EMAIL")
     password = password or os.getenv("CCTV_PASSWORD")
 
-    # Authoritative catalogue endpoint is /cameras.json
-    url = f"{api_base_url.rstrip('/')}/cameras.json"
+    # Authoritative catalogue endpoint contract is /api/ingest with /cameras.json fallback
+    catalogue_url = os.getenv("CAMERA_CATALOGUE_URL") or f"{api_base_url.rstrip('/')}/api/ingest"
     params = {}
     if district_id:
         params["district_id"] = district_id
 
     session = requests.Session()
+    session.headers.update({
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/128.0.0.0 Safari/537.36"
+        ),
+        "Referer": f"{api_base_url.rstrip('/')}/grid",
+        "Accept": "application/json, text/plain, */*",
+    })
 
     try:
-        logger.info("Discovering camera topology from %s...", url)
+        logger.info("Discovering camera topology from %s...", catalogue_url)
 
         # Authenticate with gateway if credentials are provided
         if username and password:
@@ -161,7 +170,7 @@ def discover_camera_topology(
             except Exception as auth_err:
                 logger.warning("Gateway authentication request failed: %s", auth_err)
 
-        response = session.get(url, params=params, timeout=timeout_sec, allow_redirects=False)
+        response = session.get(catalogue_url, params=params, timeout=timeout_sec, allow_redirects=False)
 
         # Detect auth redirect
         if response.status_code in (301, 302, 303, 307):
@@ -174,9 +183,9 @@ def discover_camera_topology(
                 return []
 
         # If /api/ingest returned 404, fall back to gateway's /cameras.json manifest
-        if response.status_code == 404:
+        if response.status_code == 404 and not catalogue_url.endswith("/cameras.json"):
             alt_url = f"{api_base_url.rstrip('/')}/cameras.json"
-            logger.info("/api/ingest returned 404; checking remote catalogue at %s", alt_url)
+            logger.info("Catalogue %s returned 404; checking remote manifest at %s", catalogue_url, alt_url)
             response = session.get(alt_url, timeout=timeout_sec, allow_redirects=False)
 
         response.raise_for_status()
@@ -262,7 +271,7 @@ def discover_camera_topology(
     except Exception as exc:
         logger.warning(
             "Catalogue discovery error connecting to %s: %s",
-            url,
+            catalogue_url,
             exc,
         )
         return []

@@ -83,20 +83,11 @@ async def run_migration():
                 ON public.camera_calibrations (camera_id);
             """)
 
-            print("[+] Upserting registered recorded CCTV test clips into public.cameras...")
+            print("[+] Purging legacy CAM_CCTV_* camera records from public.cameras...")
             await conn.execute("""
-                INSERT INTO public.cameras (camera_id, node_id, name, city, source, latitude, longitude, geom, enabled, status)
-                VALUES
-                    ('CAM_CCTV_0', 'NODE_AHM_01', 'CCTV Sector 1 (mycctv.mp4)', NULL, './media/mycctv.mp4', NULL, NULL, NULL, true, 'online'),
-                    ('CAM_CCTV_1', 'NODE_AHM_01', 'CCTV Sector 2 (mycctv1.mp4)', NULL, './media/mycctv1.mp4', NULL, NULL, NULL, true, 'online'),
-                    ('CAM_CCTV_2', 'NODE_AHM_01', 'CCTV Sector 3 (mycctv2.mp4)', NULL, './media/mycctv2.mp4', NULL, NULL, NULL, true, 'online'),
-                    ('CAM_CCTV_3', 'NODE_AHM_01', 'CCTV Sector 4 (mycctv3.mp4)', NULL, './media/mycctv3.mp4', NULL, NULL, NULL, true, 'online'),
-                    ('CAM_CCTV_4', 'NODE_AHM_01', 'CCTV Sector 5 (mycctv4.mp4)', NULL, './media/mycctv4.mp4', NULL, NULL, NULL, true, 'online')
-                ON CONFLICT (camera_id) DO UPDATE
-                SET source = EXCLUDED.source,
-                    name = EXCLUDED.name,
-                    status = 'online';
+                DELETE FROM public.cameras WHERE camera_id LIKE 'CAM_CCTV_%';
             """)
+
 
             print("[+] Purging synthetic GJ01AB1234 demonstration events from operational public.events...")
             res = await conn.execute("""
@@ -111,6 +102,13 @@ async def run_migration():
                 );
             """)
             print(f"[+] Purge result: {res}")
+
+            print("[+] Applying 005_cctv_asset_registry.sql...")
+            registry_sql_path = os.path.join(os.path.dirname(__file__), "..", "sql", "005_cctv_asset_registry.sql")
+            with open(registry_sql_path, "r", encoding="utf-8") as rf:
+                registry_sql = rf.read()
+            await conn.execute(registry_sql)
+            print("[+] 005_cctv_asset_registry.sql applied successfully!")
 
         print("[SUCCESS] Phase 1 database migration executed cleanly!")
     finally:
